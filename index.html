@@ -4,92 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Framen Ad Player</title>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video-js.min.css" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body {
-    width: 100%; height: 100%;
-    background: #000;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #ad-container {
-    width: 100%; height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #ad-video {
-    width: 100%; height: 100%;
-    object-fit: contain;
-    display: none;
-  }
-  #status {
-    color: #fff;
-    font-family: sans-serif;
-    font-size: 16px;
-    text-align: center;
-  }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #framen-video { width: 100% !important; height: 100% !important; }
+  .video-js { width: 100% !important; height: 100% !important; }
 </style>
 </head>
 <body>
-<div id="ad-container">
-  <video id="ad-video" playsinline autoplay muted></video>
-  <div id="status">Loading ad...</div>
-</div>
+<video id="framen-video" class="video-js vjs-default-skin" autoplay muted playsinline></video>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/1.10.2/videojs.ima.min.js"></script>
+<script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
 <script>
   var VAST_URL = "https://api.framen.com/v3/vendor/Org_2E7a3bJRHHf/players/64d13f7c-00b5-4743-b915-6619834a9e78/vast2";
-  var video = document.getElementById("ad-video");
-  var status = document.getElementById("status");
 
-  function playVideo(url) {
-    video.src = url;
-    video.style.display = "block";
-    status.style.display = "none";
-    video.play().catch(function() { video.muted = true; video.play(); });
-    video.addEventListener("ended", function() { loadVAST(VAST_URL, 0); });
-  }
+  var player = videojs("framen-video", {
+    autoplay: true,
+    muted: true,
+    controls: false
+  });
 
-  function parseVAST(xmlText) {
-    var xml = new DOMParser().parseFromString(xmlText, "text/xml");
-    var mediaFiles = xml.querySelectorAll("MediaFile");
-    for (var i = 0; i < mediaFiles.length; i++) {
-      var type = mediaFiles[i].getAttribute("type") || "";
-      if (type.indexOf("mp4") !== -1 || type.indexOf("video") !== -1) {
-        var u = mediaFiles[i].textContent.trim();
-        if (u) return u;
-      }
-    }
-    if (mediaFiles.length > 0) return mediaFiles[0].textContent.trim();
-    var wrapper = xml.querySelector("VASTAdTagURI");
-    if (wrapper) return { redirect: wrapper.textContent.trim() };
-    return null;
-  }
+  player.ima({
+    adTagUrl: VAST_URL,
+    disableCustomPlaybackForIOS10Plus: true
+  });
 
-  function loadVAST(url, depth) {
-    if (depth > 5) { status.textContent = "Too many redirects."; return; }
-    status.textContent = "Loading ad...";
-    status.style.display = "block";
-    video.style.display = "none";
-    fetch(url)
-      .then(function(r) { return r.text(); })
-      .then(function(xml) {
-        var result = parseVAST(xml);
-        if (!result) {
-          setTimeout(function() { loadVAST(VAST_URL, 0); }, 30000);
-        } else if (result.redirect) {
-          loadVAST(result.redirect, depth + 1);
-        } else {
-          playVideo(result);
-        }
-      })
-      .catch(function() {
-        setTimeout(function() { loadVAST(VAST_URL, 0); }, 15000);
-      });
-  }
+  player.ima.requestAds();
 
-  loadVAST(VAST_URL, 0);
+  player.on("adended", function() {
+    setTimeout(function() {
+      player.ima.requestAds();
+    }, 1000);
+  });
 </script>
 </body>
 </html>

@@ -1,45 +1,77 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Framen Ad Player</title>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video-js.min.css" rel="stylesheet">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-  #framen-video { width: 100% !important; height: 100% !important; }
-  .video-js { width: 100% !important; height: 100% !important; }
+* { margin:0; padding:0; box-sizing:border-box; }
+html, body { width:100%; height:100%; background:#000; overflow:hidden; }
+video { width:100%; height:100%; object-fit:contain; }
+#msg { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:#fff; font-family:sans-serif; font-size:18px; }
 </style>
 </head>
 <body>
-<video id="framen-video" class="video-js vjs-default-skin" autoplay muted playsinline></video>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.6.1/video.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/1.10.2/videojs.ima.min.js"></script>
-<script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+<video id="v" muted autoplay playsinline></video>
+<div id="msg">Loading...</div>
 <script>
-  var VAST_URL = "https://api.framen.com/v3/vendor/Org_2E7a3bJRHHf/players/64d13f7c-00b5-4743-b915-6619834a9e78/vast2";
+var API = "https://api.framen.com/v3/vendor/Org_2E7a3bJRHHf/1/rt_ad/64d13f7c-00b5-4743-b915-6619834a9e78";
+var v = document.getElementById("v");
+var msg = document.getElementById("msg");
 
-  var player = videojs("framen-video", {
-    autoplay: true,
-    muted: true,
-    controls: false
-  });
+function firePopUrl(url) {
+  if (!url) return;
+  var x = new XMLHttpRequest();
+  x.open("GET", url, true);
+  x.send();
+}
 
-  player.ima({
-    adTagUrl: VAST_URL,
-    disableCustomPlaybackForIOS10Plus: true
-  });
+function requestAd() {
+  msg.textContent = "Loading...";
+  msg.style.display = "block";
+  v.style.display = "none";
 
-  player.ima.requestAds();
+  var x = new XMLHttpRequest();
+  x.open("GET", API, true);
+  x.onload = function() {
+    try {
+      var data = JSON.parse(x.responseText);
+      var videoUrl = null;
+      var popUrl = null;
 
-  player.on("adended", function() {
-    setTimeout(function() {
-      player.ima.requestAds();
-    }, 1000);
-  });
+      // Try ad first, then news
+      if (data.ad && data.ad.url) {
+        videoUrl = data.ad.url;
+        popUrl = data.ad.pop;
+      } else if (data.news && data.news.url) {
+        videoUrl = data.news.url;
+        popUrl = data.news.pop;
+      }
+
+      if (videoUrl) {
+        msg.style.display = "none";
+        v.style.display = "block";
+        v.src = videoUrl;
+        v.play();
+        v.onended = function() {
+          firePopUrl(popUrl);
+          setTimeout(requestAd, 500);
+        };
+      } else {
+        msg.textContent = "No ad available. Retrying...";
+        setTimeout(requestAd, 30000);
+      }
+    } catch(e) {
+      msg.textContent = "Retrying...";
+      setTimeout(requestAd, 15000);
+    }
+  };
+  x.onerror = function() {
+    msg.textContent = "Retrying...";
+    setTimeout(requestAd, 15000);
+  };
+  x.send();
+}
+
+requestAd();
 </script>
 </body>
 </html>

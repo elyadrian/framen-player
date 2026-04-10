@@ -33,11 +33,10 @@ function requestAd() {
   x.open("GET", API, true);
   x.onload = function() {
     try {
-      var data = JSON.parse(x.responseText);
+      var data = JSON.parse(x.responseText).data;
       var videoUrl = null;
       var popUrl = null;
 
-      // Try ad first, then news
       if (data.ad && data.ad.url) {
         videoUrl = data.ad.url;
         popUrl = data.ad.pop;
